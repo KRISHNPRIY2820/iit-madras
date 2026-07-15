@@ -1,0 +1,459 @@
+# Master guide: run everything + test every case
+
+Do this in order. Do not skip the “Run” section.
+
+---
+
+# SECTION A — RUN EVERYTHING (before testing)
+
+## A1. Open project folder
+```powershell
+cd C:\Users\s.sambyal\Documents\project\mad2-trekking-management
+```
+
+## A2. Activate venv + check packages
+```powershell
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+Prompt should show `(venv)`.
+
+## A3. Start Redis (WSL)
+```powershell
+wsl
+```
+Inside WSL:
+```bash
+sudo service redis-server start
+redis-cli ping
+```
+Must show: `PONG`  
+Leave WSL as is (or minimize). Redis should keep running.
+
+## A4. Terminal 1 — Flask
+New PowerShell:
+```powershell
+cd C:\Users\s.sambyal\Documents\project\mad2-trekking-management
+.\venv\Scripts\Activate.ps1
+python app.py
+```
+Leave running. Open: http://127.0.0.1:5000  
+Expect: Login + Register page.
+
+## A5. Terminal 2 — Celery worker
+Another PowerShell:
+```powershell
+cd C:\Users\s.sambyal\Documents\project\mad2-trekking-management
+.\venv\Scripts\Activate.ps1
+celery -A celery_worker.celery worker --loglevel=info --pool=solo
+```
+Leave running. (`--pool=solo` required on Windows.)
+
+## A6. Terminal 3 — keep free
+Use later for reminder/report commands.
+
+## A7. Accounts you will use
+
+| Role | Email | Password | Notes |
+|------|--------|----------|--------|
+| Admin | `admin@tma.local` | `admin123` | Already seeded |
+| Staff | `staff1@test.com` | `staff123` | You create |
+| User1 | `user1@test.com` | `user123` | You register |
+| User2 | `user2@test.com` | `user123` | You register |
+| User3 | `user3@test.com` | `user123` | For no-slot test |
+
+---
+
+# SECTION B — TEST EVERY CASE (click-by-click)
+
+Mark each: Pass / Fail.
+
+---
+
+## PART 1 — Page load
+
+### T1. Open website
+Open http://127.0.0.1:5000  
+**Expect:** Login + Register forms, no red error page.
+
+---
+
+## PART 2 — AUTH / ROLES
+
+### T2. Wrong admin password
+- Email `admin@tma.local`, password `wrong` → Login  
+**Expect:** Error / not logged in.
+
+### T3. Admin login success
+- Email `admin@tma.local`, password `admin123` → Login  
+**Expect:** Admin dashboard, role `admin`, stats visible.
+
+### T4. Register cannot create admin
+- Logout  
+- Register: name `Fake`, email `fakeadmin@test.com`, password `x` → Register  
+**Expect:** Role becomes `user`, not admin.  
+- Logout → Admin login again.
+
+---
+
+## PART 3 — ADMIN: STAFF
+
+### T5. Add staff (happy)
+Add Staff:
+- Name `Ravi Staff`
+- Email `staff1@test.com`
+- Password `staff123`
+- Contact `9876543210`
+- Add  
+**Expect:** Staff in list; staff count +1.
+
+### T6. Duplicate staff email
+Add Staff again with `staff1@test.com`  
+**Expect:** Error email exists.
+
+### T7. Staff missing name
+Add Staff with empty name, email `staffx@test.com` → Add  
+**Expect:** Error required fields.
+
+---
+
+## PART 4 — ADMIN: TREKS
+
+### T8. Create Open trek (main trek)
+Create Trek:
+- Name `Triund Trek`
+- Location `McLeod Ganj`
+- Difficulty `Easy`
+- Duration `2`
+- Slots `3`
+- Staff `Ravi Staff`
+- Start date = **tomorrow**
+- End date = +2 days
+- Status `Open`
+- Create  
+**Expect:** Appears in All Treks.
+
+### T9. Create Pending trek (for status tests)
+- Name `Pending Trek`
+- Location `Manali`
+- Difficulty `Moderate`
+- Duration `3`
+- Slots `5`
+- Staff `Ravi Staff`
+- Status `Pending`
+- Create  
+**Expect:** Listed as Pending.
+
+### T10. Create spare trek to delete
+- Name `Delete Me`
+- Location `Shimla`
+- any values, staff Ravi, status Pending
+- Create → **Delete** that row  
+**Expect:** Removed.
+
+### T11. Create trek empty name
+Empty name, location `X` → Create  
+**Expect:** Error.
+
+### T12. Update trek
+On Triund: slots `3` (keep), Save if you change anything  
+**Expect:** Saved.
+
+### T13. Assign staff
+Ensure Triund assigned_staff = Ravi → Save  
+**Expect:** Staff name shown.
+
+---
+
+## PART 5 — ADMIN: SEARCH / USERS / BLACKLIST
+
+### T14. Search trek
+Search `Triund` → Search  
+**Expect:** Trek in result.
+
+### T15. Search staff
+Search `Ravi` or `staff1` → Search  
+**Expect:** Staff in result.
+
+### T16. Search nonsense
+Search `zzzznone` → Search  
+**Expect:** Empty / no matches.
+
+### T17. Deactivate staff
+Staff list → Ravi → **Deactivate** → Logout  
+Login `staff1@test.com` / `staff123`  
+**Expect:** Blocked.  
+Admin login → **Activate** Ravi.
+
+### T18. Blacklist staff
+Ravi → **Blacklist** → Logout → staff login  
+**Expect:** Blocked.  
+Admin → **Activate** Ravi. Logout Admin.
+
+---
+
+## PART 6 — STAFF FLOW
+
+### T19. Staff login
+Login `staff1@test.com` / `staff123`  
+**Expect:** Staff dashboard.
+
+### T20. Only assigned treks
+**Expect:** See Triund (and other treks assigned to Ravi). Not random unassigned ones.
+
+### T21. Update slots
+Slots → `2` → Update  
+**Expect:** Success, slots=2.
+
+### T22. Close trek
+Status `Closed` → Update  
+**Expect:** Closed.
+
+### T23. Re-open trek (needed for booking)
+Status `Open`, slots `2` → Update  
+**Expect:** Open.
+
+### T24. Participants (empty/early)
+Participants  
+**Expect:** List opens (maybe empty).
+
+### T25. Staff self-register is NOT staff
+Logout → Register `staffself@test.com` / `pass`  
+**Expect:** role `user`.  
+Logout → Staff login `staff1@test.com` again. Logout staff.
+
+---
+
+## PART 7 — USER FLOW + BOOKING RULES
+
+### T26. Register user1
+Register:
+- Name `Asha`
+- Email `user1@test.com`
+- Phone `9999999999`
+- Password `user123`
+**Expect:** User dashboard.
+
+### T27. Duplicate register
+Logout → Register same `user1@test.com` again  
+**Expect:** Email already registered.  
+Login user1 again.
+
+### T28. Wrong user password
+Logout → `user1@test.com` / `wrong`  
+**Expect:** Invalid credentials. Login correctly.
+
+### T29. Update profile
+Change phone → Save  
+**Expect:** Saved.
+
+### T30. See open treks
+**Expect:** Triund visible (Open). Pending Trek should not appear as open bookable list.
+
+### T31. Filter difficulty Easy
+Difficulty `Easy` → Filter  
+**Expect:** Triund shown.
+
+### T32. Filter difficulty Hard
+`Hard` → Filter  
+**Expect:** Triund hidden.
+
+### T33. Filter location
+Location `McLeod` → Filter  
+**Expect:** Triund shown.  
+Location `zzzz` → empty.
+
+### T34. Filter duration
+Duration `2` → Triund shown.  
+Duration `99` → empty.  
+Clear so Triund visible again.
+
+### T35. Book success
+Book Triund  
+**Expect:** Booked. In My Bookings status `Booked`. Slots 2→1.
+
+### T36. Duplicate booking ★
+Book Triund again  
+**Expect:** Error already booked.
+
+### T37. Cancel booking
+Cancel that booking  
+**Expect:** Cancelled. Slots increase (1→2).
+
+### T38. Rebook after cancel
+Book again  
+**Expect:** Allowed. Slots 2→1.
+
+### T39. Second user occupies last slots
+Logout → Register `user2@test.com` / `user123` → Book Triund  
+**Expect:** Success. Slots 1→0.
+
+### T40. Overbooking slots=0 ★
+Logout → Register `user3@test.com` / `user123` → Book Triund  
+**Expect:** Error no slots.
+
+### T41. Closed trek cannot book ★
+Logout → Staff login → Triund slots `5`, status `Closed` → Update → Logout  
+User1 login → try book Triund  
+**Expect:** Fail / not listed as Open.  
+
+Staff login → status `Open`, slots `5` → Update → Logout.
+
+### T42. Pending cannot book ★
+Admin login → Triund (or Pending Trek) set `Pending` → Save → Logout  
+User try book  
+**Expect:** Fail / not in open list.  
+
+Admin set Triund `Open` again → Save → Logout.
+
+### T43. User only own history
+Login user1 → My Bookings  
+**Expect:** Only user1 rows (not user2).
+
+### T44. Blacklist user
+Admin → Users → user2 → Blacklist → Logout  
+Login user2  
+**Expect:** Blocked.  
+Admin Activate user2 (optional).
+
+### T45. Deactivate user
+Admin → user1 Deactivate → Logout → user1 login  
+**Expect:** Blocked.  
+Admin Activate user1.
+
+---
+
+## PART 8 — STAFF AFTER BOOKINGS + COMPLETED
+
+### T46. Participants filled
+Staff login → Participants on Triund  
+**Expect:** See booked users.
+
+### T47. Registered count
+**Expect:** Count matches non-cancelled bookings roughly.
+
+### T48. Mark Completed
+Status `Completed` → Update  
+**Expect:** Trek Completed; previous Booked become Completed.
+
+### T49. User sees completed history
+User1 login → My Bookings  
+**Expect:** Completed status for that trek.
+
+---
+
+## PART 9 — ADMIN HISTORY / STATS
+
+### T50. All bookings
+Admin → All Bookings  
+**Expect:** Bookings from multiple users visible.
+
+### T51. Stats nonzero
+**Expect:** treks/users/staff/bookings sensible numbers.
+
+---
+
+## PART 10 — CELERY JOBS
+
+Ensure Redis PONG + Celery worker still running.
+
+### T52. Prepare reminder trek
+Admin: create trek
+- Name `Reminder Trek`
+- Location `Dharamshala`
+- Easy, duration 2, slots 5
+- Staff Ravi
+- Start = **tomorrow**
+- Status `Open`
+- Create  
+
+User1 login → Book Reminder Trek.
+
+### T53. Daily reminders
+Terminal 3 (venv):
+```powershell
+celery -A celery_worker.celery call tasks.send_daily_reminders
+```
+Open:
+`C:\Users\s.sambyal\Documents\project\mad2-trekking-management\exports\daily_reminders.txt`  
+**Expect:** Reminder lines with email/trek/date.
+
+### T54. Monthly report
+```powershell
+celery -A celery_worker.celery call tasks.send_monthly_report
+```
+Open `exports\monthly_report.html` in browser  
+**Expect:** HTML stats (completed, participants, popular).
+
+### T55. CSV export async ★
+User1 → **Export CSV (async)**  
+Watch Celery terminal for task.  
+UI should show export complete.  
+Open `exports\user_<id>_history.csv`  
+**Expect:** User ID, Trek Name, Location, Booking Status, Dates.
+
+### T56. CSV without Celery (negative test)
+Stop Celery (Ctrl+C in worker) → Export CSV  
+**Expect:** fails/stuck.  
+Start Celery worker again.
+
+---
+
+## PART 11 — REDIS CACHE (light)
+
+### T57. Cache refresh
+User open treks list.  
+Admin change trek name/location → Save.  
+User refresh/filter again.  
+**Expect:** Updated data shown.
+
+---
+
+# SECTION C — FINAL PASS TABLE
+
+| ID | Case | Pass? |
+|----|------|-------|
+| T1 | Page loads | |
+| T3 | Admin login seeded | |
+| T4 | No admin via register | |
+| T5 | Add staff | |
+| T8 | Create Open trek + assign | |
+| T14-16 | Search | |
+| T17-18 | Deactivate/blacklist staff | |
+| T19-24 | Staff manage assigned trek | |
+| T26-34 | User register/profile/filters | |
+| T35 | Book Open | |
+| T36 | No duplicate | |
+| T37-38 | Cancel + rebook | |
+| T40 | No overbook | |
+| T41-42 | Closed/Pending blocked | |
+| T43 | Own history only | |
+| T44-45 | Blacklist/deactivate user | |
+| T46-49 | Participants + Completed | |
+| T50 | Admin all history | |
+| T53-55 | Reminder + report + CSV | |
+| T57 | Cache updates | |
+
+---
+
+# SECTION D — IF SOMETHING BREAKS
+
+| Symptom | Check |
+|---------|--------|
+| Site won’t open | Flask running? port 5000? |
+| Jinja `user undefined` | `{% raw %}` in index.html |
+| Export never finishes | Redis PONG + Celery `--pool=solo` |
+| Staff login blocked | Admin activated staff |
+| Can’t book | Status Open + slots > 0 + not duplicate |
+| Redis errors | `wsl` → `sudo service redis-server start` |
+
+---
+
+# What to do right now
+
+1. Confirm Redis / Flask / Celery running (Section A)  
+2. Start at **T1**  
+3. Go in order through **T57**  
+4. Fill the pass table  
+
+If one fails, reply with: **test ID (e.g. T36) + exact message on screen**.
