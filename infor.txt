@@ -1,0 +1,201 @@
+A. If you’re Admin now — Admin tests
+A1. Happy path (do first)
+Add Staff → name, email, password, contact → Add
+Create Trek → assign that staff, status Open, slots 5, future start date → Create
+Confirm dashboard counts went up (treks/staff)
+Search by trek name, staff name, staff id
+Open All Bookings (empty for now — OK)
+A2. Admin edge cases
+#	Test	How	Expected
+1
+Update trek
+Change slots/status/staff → Save
+Updates
+2
+Assign staff
+Change staff dropdown → Save
+New staff shown
+3
+Delete trek
+Delete (use a spare trek)
+Trek gone
+4
+Create trek missing name
+Leave name empty → Create
+Error
+5
+Deactivate staff
+Staff → Deactivate
+Staff can’t login
+6
+Blacklist staff
+Blacklist
+Staff can’t login
+7
+Activate again
+Activate
+Staff can login again
+8
+Search junk
+Search zzzz
+Empty / no matches
+9
+No admin register
+Only login form for admin
+No way to register as admin
+Then Logout.
+
+B. Staff tests
+B1. Login
+Login with staff email/password you created
+B2. Happy path
+See only assigned treks
+Note registered count
+Change slots → Update
+Set status Closed → Update
+Set status Open → Update (need this for booking later)
+Click Participants
+B3. Staff edge cases
+#	Test	How	Expected
+1
+Only assigned treks
+Look at list
+No other admins’ treks
+2
+Mark Completed
+Status Completed → Update
+Status Completed; booked users become Completed later
+3
+Staff register?
+Logout → check register
+Register creates user only, not staff
+4
+Wrong login after blacklist
+Blacklist as admin, then staff login
+Blocked
+5
+Unassigned trek
+(Advanced) call API for another trek id
+403 Not your assigned trek
+Then set trek back to Open with slots ≥ 1, Logout.
+
+C. User (Trekker) tests
+C1. Register + profile
+Register new trekker
+Edit profile → Save
+Logout → Login again with same email
+C2. Booking happy path
+See Open treks
+Filter difficulty / location / duration
+Book → appears in My Bookings as Booked
+C3. User / booking edge cases (important)
+#	Test	How	Expected
+1
+Duplicate booking
+Book same trek again
+Error: already booked
+2
+Closed trek
+As staff/admin set Closed → user tries Book
+Error: not Open
+3
+No slots
+Set slots 0 (staff/admin) → Book
+Error: no slots
+4
+Pending/Approved
+Set status Pending → Book
+Not allowed
+5
+Cancel
+Cancel booking
+Status Cancelled; slot +1
+6
+Book again after cancel
+Book same trek
+Allowed
+7
+History only own
+My Bookings
+Only this user’s rows
+8
+Filter no match
+Weird location
+Empty list
+9
+Blacklisted user
+Admin blacklist user → login
+Blocked
+10
+Register duplicate email
+Register same email twice
+Error
+D. History / status tracking
+#	Test	How	Expected
+1
+User history
+Book → cancel → book → complete
+History shows statuses
+2
+Staff completes trek
+Staff sets Completed
+Bookings → Completed
+3
+Admin all history
+Admin → All Bookings
+All users’ bookings
+4
+Staff participants
+Staff → Participants
+Sees booked users
+E. Celery jobs (Redis + worker must be running)
+#	Test	How	Expected
+1
+CSV export
+User → Export CSV
+Alert when done; file in exports/
+2
+Export without Celery
+Stop worker → Export
+Fails / stuck — proves Celery needed
+3
+Daily reminder
+celery -A celery_worker.celery call tasks.send_daily_reminders
+File exports/daily_reminders.txt
+4
+Monthly report
+celery -A celery_worker.celery call tasks.send_monthly_report
+File exports/monthly_report.html
+Reminder tip: trek start_date within next ~3 days so reminder finds it.
+
+F. Redis cache (light check)
+As user, open treks list twice
+As admin, change a trek → Save
+User refresh list → should show new data (cache cleared on update)
+Suggested order right now (you’re logged in)
+Assuming Admin:
+
+Add staff
+Create Open trek with slots
+Search
+Logout → staff login → update slots → Open
+Logout → register user → book
+Try book again (must fail)
+Staff set slots 0 → user book (must fail)
+Staff set Open + slots → book OK
+Export CSV
+Run reminder + monthly report commands
+Admin → check All Bookings
+Pass rule for viva
+If these pass, document requirements are covered:
+
+Open-only booking
+No overbooking
+No duplicate booking
+Staff only assigned treks
+Admin seed, no admin register
+Staff no self-register
+History by role
+Celery CSV + reminder + monthly HTML
+Redis cache present
+If something fails, note the exact message on screen and I can tell you what it means.
