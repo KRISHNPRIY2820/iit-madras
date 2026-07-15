@@ -1,0 +1,895 @@
+Complete testing steps — start to finish
+Use one browser. Keep these running before you start:
+
+Redis in WSL → redis-cli ping → PONG
+Flask → python app.py
+Celery → celery -A celery_worker.celery worker --loglevel=info --pool=solo
+Browser → http://127.0.0.1:5000
+Use these test accounts as you create them:
+
+Role	Email	Password
+Admin (already exists)
+admin@tma.local
+admin123
+Staff you will create
+staff1@test.com
+staff123
+User you will create
+user1@test.com
+user123
+Extra user (later)
+user2@test.com
+user123
+Tick each step with ✅ / ❌ as you go.
+
+PART 0 — Open app
+Step 0.1
+Open http://127.0.0.1:5000
+
+Expect: Login + Register forms (no crash).
+
+PART 1 — ADMIN TESTS
+1.1 Admin login (happy path)
+Step 1.1.1
+Email: admin@tma.local
+Password: admin123
+Click Login
+
+Expect: Admin dashboard. Name shows System Admin, role admin.
+
+Step 1.1.2
+Look at counts: Treks / Users / Staff / Bookings
+
+Expect: Numbers shown (may be 0 at first).
+
+1.2 Admin cannot register as admin
+Step 1.2.1
+Click Logout
+
+Step 1.2.2
+In Register: Name Fake Admin, Email fakeadmin@test.com, Password x, Click Register
+
+Expect: Account created as user (trekker), NOT admin. Role should be user.
+
+Step 1.2.3
+Logout → Login again as admin@tma.local / admin123
+
+1.3 Wrong admin password
+Step 1.3.1
+Logout → Login with admin@tma.local / wrongpass
+
+Expect: Error (Invalid credentials). Stay on login.
+
+Step 1.3.2
+Login correctly again as Admin.
+
+1.4 Add staff (happy path)
+Step 1.4.1
+In Add Staff:
+
+Name: Ravi Staff
+Email: staff1@test.com
+Password: staff123
+Contact: 9876543210
+Click Add
+Expect: Message staff added; staff appears in Staff List.
+
+Step 1.4.2
+Check Admin stats → Staff count increased by 1.
+
+1.5 Add staff with duplicate email (edge)
+Step 1.5.1
+Add Staff again with same email staff1@test.com
+
+Expect: Error like email already exists.
+
+1.6 Add staff missing fields (edge)
+Step 1.6.1
+Add Staff with empty Name, email staff2@test.com → Add
+
+Expect: Error (name/email required).
+
+1.7 Create trek Open (happy path)
+Step 1.7.1
+Create Trek:
+
+Name: Triund Trek
+Location: McLeod Ganj
+Difficulty: Easy
+Duration: 2
+Slots: 3
+Staff: Ravi Staff
+Start date: tomorrow (or within 3 days)
+End date: +2 days
+Status: Open
+Click Create
+Expect: Trek in All Treks table, status Open, staff assigned.
+
+Step 1.7.2
+Stats → Treks increased.
+
+1.8 Create second trek (for delete / closed tests)
+Step 1.8.1
+Create trek:
+
+Name: Delete Me Trek
+Location: Manali
+Difficulty: Moderate
+Duration: 3
+Slots: 5
+Staff: Ravi Staff
+Status: Pending
+Click Create
+Expect: Appears in list with Pending.
+
+1.9 Create trek missing name (edge)
+Step 1.9.1
+Create with empty Name, location Test → Create
+
+Expect: Error name/location required.
+
+1.10 Update trek (happy path)
+Step 1.10.1
+On Triund Trek row:
+
+Change slots to 4
+Keep staff Ravi
+Status stay Open
+Click Save
+Expect: Saved / trek updated message.
+
+1.11 Assign / reassign staff
+Step 1.11.1
+(If you have only one staff, skip reassign or add staff2@test.com first)
+
+Change assigned staff dropdown on trek → Save
+
+Expect: Staff name updates.
+
+Put Ravi back → Save (needed for later staff tests).
+
+1.12 Search users / staff / treks
+Step 1.12.1
+Search Triund → Search
+
+Expect: Trek found in result.
+
+Step 1.12.2
+Search Ravi → Search
+
+Expect: Staff found.
+
+Step 1.12.3
+Search staff1@test.com or staff id number → Search
+
+Expect: Match.
+
+Step 1.12.4
+Search zzzznotfound → Search
+
+Expect: Empty lists / no useful matches.
+
+1.13 Deactivate staff (edge)
+Step 1.13.1
+On Staff List for Ravi → Deactivate
+
+Expect: Status inactive.
+
+Step 1.13.2
+Logout → try login staff1@test.com / staff123
+
+Expect: Login blocked / deactivated message.
+
+Step 1.13.3
+Login Admin again → Staff → Activate for Ravi.
+
+1.14 Blacklist staff (edge)
+Step 1.14.1
+Staff → Blacklist for Ravi
+
+Expect: Blacklisted.
+
+Step 1.14.2
+Logout → staff login
+
+Expect: Blocked.
+
+Step 1.14.3
+Admin login → Staff → Activate (clears blacklist/active in your UI).
+
+Confirm staff can login later in Part 2.
+
+1.15 Delete trek (edge / manage)
+Step 1.15.1
+On Delete Me Trek → Delete
+
+Expect: Trek removed from list.
+
+1.16 View all bookings (empty OK)
+Step 1.16.1
+Scroll All Bookings
+
+Expect: Empty or old data only. OK for now.
+
+Step 1.16.2
+Logout Admin.
+
+PART 2 — STAFF TESTS
+2.1 Staff login (happy path)
+Step 2.1.1
+Login staff1@test.com / staff123
+
+Expect: Staff dashboard, role staff.
+
+2.2 Staff sees only assigned treks
+Step 2.2.1
+Look at assigned treks.
+
+Expect: Triund Trek visible (assigned to Ravi).
+No random treks not assigned to this staff.
+
+2.3 Update slots
+Step 2.3.1
+Set slots to 2 → Update
+
+Expect: Updated successfully. Slots show 2.
+
+2.4 Update status Open / Closed
+Step 2.4.1
+Status → Closed → Update
+
+Expect: Status Closed.
+
+Step 2.4.2
+Status → Open → Update
+
+Expect: Status Open (needed for booking).
+
+2.5 View participants (empty first)
+Step 2.5.1
+Click Participants
+
+Expect: Empty list OR only current bookings.
+
+2.6 Staff cannot self-register as staff
+Step 2.6.1
+Logout → Register with email staffself@test.com
+
+Expect: Becomes role user, not staff. Staff accounts only from Admin.
+
+Step 2.6.2
+Logout → Staff login again staff1@test.com / staff123
+
+2.7 Leave trek Open with slots for users
+Step 2.7.1
+Slots = 2, Status = Open → Update
+
+Step 2.7.2
+Logout.
+
+PART 3 — USER (TREKKER) TESTS
+3.1 Register (happy path)
+Step 3.1.1
+Register:
+
+Name: Asha Trekker
+Email: user1@test.com
+Phone: 9999999999
+Password: user123
+Click Register
+Expect: Logged into User dashboard.
+
+3.2 Duplicate register email (edge)
+Step 3.2.1
+Logout → Register again with user1@test.com
+
+Expect: Error email already registered.
+
+Step 3.2.2
+Login user1@test.com / user123
+
+3.3 Wrong password (edge)
+Step 3.3.1
+Logout → Login user1@test.com / wrong
+
+Expect: Invalid credentials.
+
+Step 3.3.2
+Login correctly again.
+
+3.4 Update profile
+Step 3.4.1
+Change phone to 8888888888 → Save
+
+Expect: Profile saved.
+
+3.5 View open treks
+Step 3.5.1
+Look at trek table.
+
+Expect: Triund Trek visible (Open). Pending/Closed should not appear as bookable open list.
+
+3.6 Filter by difficulty
+Step 3.6.1
+Difficulty = Easy → Filter
+
+Expect: Triund shown.
+
+Step 3.6.2
+Difficulty = Hard → Filter
+
+Expect: Triund not shown (unless it is Hard).
+
+3.7 Filter by location
+Step 3.7.1
+Location = McLeod → Filter
+
+Expect: Triund shown.
+
+Step 3.7.2
+Location = zzzz → Filter
+
+Expect: Empty.
+
+3.8 Filter by duration
+Step 3.8.1
+Duration = 2 → Filter
+
+Expect: Triund shown.
+
+Step 3.8.2
+Duration = 99 → Filter
+
+Expect: Empty.
+
+Clear filters / Filter again so Triund is visible.
+
+3.9 Book trek (happy path)
+Step 3.9.1
+Click Book on Triund
+
+Expect: Booked message. Appears in My Bookings as Booked. Slots decreased (was 2 → 1).
+
+3.10 Duplicate booking (edge) ★ important
+Step 3.10.1
+Click Book on Triund again
+
+Expect: Error already booked / cannot book again.
+
+3.11 Booking history shows status
+Step 3.11.1
+Check My Bookings columns: trek name, location, booking status, trek status, dates
+
+Expect: Correct row for Triund, status Booked.
+
+3.12 Cancel booking
+Step 3.12.1
+Click Cancel on that booking
+
+Expect: Status Cancelled. Slots should increase again (1 → 2).
+
+3.13 Book again after cancel (edge)
+Step 3.13.1
+Click Book again
+
+Expect: Allowed. Status Booked again. Slots 2 → 1.
+
+3.14 Second user books (slot counting)
+Step 3.14.1
+Logout → Register user2@test.com / user123
+
+Step 3.14.2
+Book Triund
+
+Expect: Success. Slots 1 → 0.
+
+3.15 Overbooking when slots = 0 (edge) ★ important
+Step 3.15.1
+Logout → Register user3@test.com / user123 (or login new user)
+
+Step 3.15.2
+Try Book Triund
+
+Expect: Error no slots available.
+
+3.16 Book when Closed (edge) ★ important
+Step 3.16.1
+Logout → Staff login → set Triund slots 5, status Closed → Update → Logout
+
+Step 3.16.2
+User login user1@test.com → try Book
+
+Expect: Error trek not Open. (Open list may also hide Closed treks — also OK.)
+
+Step 3.16.3
+Staff → set status Open, slots 5 → Update → Logout
+
+3.17 Book when Pending (edge)
+Step 3.17.1
+Admin login → set Triund status Pending → Save → Logout
+
+Step 3.17.2
+User login → Triund should not be in open list / Book fails
+
+Expect: Cannot book.
+
+Step 3.17.3
+Admin → status Open → Save → Logout
+
+3.18 Blacklisted user cannot login (edge)
+Step 3.18.1
+Admin login → Users → find user2@test.com → Blacklist → Logout
+
+Step 3.18.2
+Try login user2@test.com / user123
+
+Expect: Deactivated/blacklisted error.
+
+Step 3.18.3
+Admin → Activate user2 again (optional cleanup).
+
+3.19 Deactivated user cannot login (edge)
+Step 3.19.1
+Admin → Deactivate user1@test.com → Logout
+
+Step 3.19.2
+Login user1
+
+Expect: Blocked.
+
+Step 3.19.3
+Admin → Activate user1 → Logout → user1 login again OK.
+
+3.20 User sees only own history
+Step 3.20.1
+Login as user1 → My Bookings
+
+Expect: Only user1 bookings, not user2’s.
+
+PART 4 — STAFF AFTER BOOKINGS
+4.1 Participants list
+Step 4.1.1
+Staff login → Participants on Triund
+
+Expect: Sees booked users (user1 / user2 etc., not cancelled-only if cancelled).
+
+4.2 Registered count
+Step 4.2.1
+Look at registered count on trek card
+
+Expect: Matches active (non-cancelled) bookings roughly.
+
+4.3 Mark trek Completed
+Step 4.3.1
+Status → Completed → Update
+
+Expect: Trek Completed. Related Booked bookings become Completed.
+
+Step 4.3.2
+User1 login → My Bookings
+
+Expect: Booking status Completed (for that trek).
+
+Step 4.3.3
+For more booking tests later: Admin/Staff set trek Open again and slots > 0 if needed.
+Or create a new Open trek Valley Trek for remaining tests.
+
+PART 5 — ADMIN HISTORY AFTER DATA
+5.1 Admin sees all bookings
+Step 5.1.1
+Admin login → All Bookings
+
+Expect: Bookings from all users visible (Admin history view).
+
+5.2 Stats reflect data
+Step 5.2.1
+Check totals treks/users/staff/bookings
+
+Expect: Non-zero and sensible.
+
+PART 6 — CELERY JOBS
+Make sure Celery worker + Redis are running.
+
+6.1 Prepare upcoming trek for reminder
+Step 6.1.1
+Admin: create or edit a trek:
+
+Name: Reminder Trek
+Status: Open
+Slots: 5
+Staff: Ravi
+Start date: tomorrow (within 3 days)
+Save
+Step 6.1.2
+User1 login → Book Reminder Trek
+
+6.2 Daily reminders job
+Step 6.2.1
+In PowerShell (venv):
+
+celery -A celery_worker.celery call tasks.send_daily_reminders
+Step 6.2.2
+Open folder: C:\Users\s.sambyal\Documents\project\mad2-trekking-management\exports\daily_reminders.txt
+
+Expect: File exists; contains reminder line with user email / trek name / date.
+
+6.3 Monthly report job
+Step 6.3.1
+celery -A celery_worker.celery call tasks.send_monthly_report
+Step 6.3.2
+Open exports\monthly_report.html in browser
+
+Expect: HTML with completed/participants/popular treks info.
+
+6.4 CSV export (user-triggered) ★ important
+Step 6.4.1
+Login user1 → Export CSV (async)
+
+Expect: Message export started + later “Export complete” / file path.
+
+Step 6.4.2
+Open exports\user_<id>_history.csv
+
+Expect: Columns include User ID, Trek Name, Location, Booking Status, Dates.
+
+Step 6.4.3 (edge) Stop Celery worker → Export again
+Expect: Fails or never completes — proves job needs Celery.
+Start worker again after.
+
+PART 7 — REDIS CACHE (light)
+7.1 Cache works / refreshes
+Step 7.1.1
+User login → open treks list (load twice)
+
+Step 7.1.2
+Admin → rename trek or change location → Save
+
+Step 7.1.3
+User refresh / Filter again
+
+Expect: New data appears (cache cleared on update).
+
+PART 8 — QUICK FAIL CHECKLIST (must all pass)
+#	Rule	Pass?
+1
+Admin seeded, login works, no admin register
+2
+Staff created by admin only
+3
+Staff sees only assigned treks
+4
+Staff update slots/status/participants
+5
+User register/login/profile
+6
+Filter difficulty/location/duration
+7
+Book only if Open
+8
+No book when Closed/Pending
+9
+No book when slots 0
+10
+No duplicate booking
+11
+Cancel works; can rebook after cancel
+12
+User only own history
+13
+Admin all bookings + search + blacklist
+14
+Staff complete trek updates bookings
+15
+CSV export via Celery
+16
+Daily reminder file
+17
+Monthly HTML report
+What you should do right now
+If you are already logged in as Admin, start at:
+
+→ Step 1.4 Add staff
+then continue in order: create trek → staff tests → user tests → edge booking → Celery.
+
+If you are logged in as someone else, Logout, then Admin login Step 1.1, then continue.
+
+If any step fails, note the step number + exact error message and send it here.
+
+
+
+
+
+
+
+
+
+You are my viva preparation tutor for my college project. Learn this project completely, then answer my questions like an examiner and also help me answer like a student. Keep answers clear and based ONLY on this project (do not invent features that are not listed). If something is uncertain, say so.
+
+========================
+PROJECT OVERVIEW
+========================
+Project name: Trekking Management Application V2 (TMA)
+Course: Modern Application Development II (MAD-II)
+Type: Full-stack web app for managing treks with 3 roles:
+1) Admin
+2) Trek Staff
+3) User / Trekker
+
+Problem it solves:
+Adventure groups often manage treks with spreadsheets/calls. This app manages trek creation, staff assignment, slot booking, participant tracking, history, Redis caching, and Celery background jobs in one system.
+
+========================
+MANDATORY TECH STACK (USED)
+========================
+- Flask: REST API backend
+- Vue.js (CDN, Vue 2): frontend UI
+- Jinja2: only entry HTML page (templates/index.html), NOT full UI
+- Bootstrap 5: styling only CSS framework
+- SQLite: database
+- SQLAlchemy via Flask-SQLAlchemy: models + db.create_all()
+- Redis: caching + Celery broker
+- Celery (+ Beat schedule configured): batch jobs
+- JWT (PyJWT): authentication tokens
+- Werkzeug: password hashing
+
+NOT used (optional course extras skipped):
+- Vue CLI
+- Chart.js
+- PWA
+- PDF reports (HTML report used instead)
+- Payment simulation
+
+Important UI fix:
+Vue and Jinja both use {{ }}. templates/index.html wraps Vue markup in {% raw %} ... {% endraw %} so Jinja does not parse Vue bindings.
+
+========================
+FOLDER / MAIN FILES
+========================
+Repo (example): mad2-trekking-management
+
+- app.py : Flask app factory, all API routes, serves UI
+- models.py : User, StaffProfile, Trek, Booking
+- seed.py : creates default Admin after DB creation
+- auth.py : JWT create/decode, login_required, role_required
+- config.py : DB URI, JWT secret, Redis URL, SMTP/webhook env vars
+- cache_util.py : Redis get/set/delete with TTL
+- celery_worker.py : Celery app + beat schedule
+- tasks.py : daily reminders, monthly HTML report, CSV export
+- templates/index.html : Jinja shell + Vue UI
+- static/app.js : Vue methods calling APIs
+- requirements.txt
+- README.md
+- PROJECT_REPORT.md / PROJECT_REPORT.pdf
+- exports/ : generated CSV/reminders/report files (gitignored mostly)
+- tma.db : SQLite DB created automatically (not manually in DB Browser)
+
+========================
+DATABASE MODELS
+========================
+Unified User model with role field:
+- role = "admin" | "staff" | "user"
+
+1) users
+- id, name, email, password_hash, role, phone
+- is_active, is_blacklisted, created_at
+
+2) staff_profiles
+- id, user_id (FK users), contact_details, status
+
+3) treks
+- id, name, location, difficulty (Easy/Moderate/Hard)
+- duration (days), available_slots
+- assigned_staff_id (FK users)
+- status: Pending / Approved / Open / Closed / Completed
+- start_date, end_date, description
+
+4) bookings
+- id, user_id, trek_id
+- booking_date
+- status: Booked / Cancelled / Completed
+- payment_status (optional, default Pending)
+
+Relationships:
+- User 1—0..1 StaffProfile
+- User(staff) 1—many Trek via assigned_staff_id
+- User(trekker) 1—many Booking
+- Trek 1—many Booking
+
+Admin seeding:
+- seed.py creates Admin if missing:
+  email: admin@tma.local
+  password: admin123
+- No Admin registration in UI.
+
+========================
+AUTHENTICATION & RBAC
+========================
+- Login for all roles via POST /api/login → returns JWT + user
+- Register only for Trekkers via POST /api/register (role always forced to "user")
+- Staff: no self-registration; Admin creates staff
+- Admin: predefined only
+- Frontend stores token/user in localStorage
+- API protected with Authorization: Bearer <token>
+- role_required("admin"|"staff"|"user") enforces access
+- inactive/blacklisted users cannot login / authorized APIs reject them
+- After login, Vue shows role-specific dashboard
+
+========================
+ADMIN FEATURES
+========================
+Dashboard stats:
+- total treks, users, staff, bookings
+
+Can:
+- create/update/delete treks
+- add/manage staff
+- assign staff to treks
+- view users/staff/treks
+- search users/staff/treks by name/email/id
+- deactivate / blacklist users or staff
+- view all bookings / history
+- see basic statistics on dashboard
+
+========================
+TREK STAFF FEATURES
+========================
+- login only after Admin creates account
+- sees only assigned treks
+- sees registered trekkers count per trek
+- update available slots
+- update status (Open/Closed/Completed etc.)
+- view participants for assigned trek
+- mark trek Completed → related Booked bookings become Completed
+- cannot manage treks not assigned to them (API returns 403)
+
+========================
+USER / TREKKER FEATURES
+========================
+- self-register, login, update profile
+- view Open treks
+- filter by difficulty, location, duration
+- book trek
+- view booking status + trekking history
+- cancel booking (releases slot)
+- trigger async CSV export of history
+
+========================
+CORE BUSINESS RULES (IMPORTANT FOR VIVA)
+========================
+1) Booking allowed only if trek.status == "Open"
+2) Prevent overbooking: available_slots must be > 0; slot decremented on book
+3) Prevent duplicate booking for same user+trek (non-cancelled)
+4) Cancel sets booking Cancelled and increments slots back
+5) Only assigned staff can update that trek / see participants
+6) Users see only their own bookings
+7) Admin can see all bookings
+8) Blacklisted/inactive users/staff blocked
+9) DB created programmatically via models + db.create_all()
+
+========================
+REDIS CACHING
+========================
+- cache_util.py uses Redis URL redis://localhost:6379/0
+- Caches:
+  - open_treks
+  - all_treks
+- TTL from config (CACHE_TTL_SECONDS, e.g. 60)
+- cache cleared on trek/booking changes via clear_trek_cache()
+- if Redis down, cache functions fail softly (app can still run, jobs may fail)
+
+========================
+CELERY JOBS
+========================
+Broker/backend: Redis
+
+1) Daily reminders (tasks.send_daily_reminders)
+- finds booked treks starting within ~3 days
+- writes exports/daily_reminders.txt
+- also tries webhook and/or SMTP if env vars set
+
+2) Monthly report (tasks.send_monthly_report)
+- HTML report with completed treks, participants, popular treks
+- saves exports/monthly_report.html
+- also tries webhook/email if configured
+
+3) CSV export (tasks.export_user_history)
+- triggered by user from UI: POST /api/export/history
+- async Celery task
+- CSV columns: User ID, Trek Name, Location, Booking Status, Dates
+- UI polls /api/export/status/<task_id> and shows alert when done
+- file: exports/user_<id>_history.csv
+
+Celery Beat schedule exists in celery_worker.py for daily/monthly intervals.
+For demo, tasks can be called manually:
+celery -A celery_worker.celery call tasks.send_daily_reminders
+celery -A celery_worker.celery call tasks.send_monthly_report
+
+Notification env vars (optional):
+TMA_WEBHOOK_URL, TMA_SMTP_HOST, TMA_SMTP_PORT, TMA_SMTP_USER,
+TMA_SMTP_PASSWORD, TMA_SMTP_FROM, TMA_REPORT_TO
+
+========================
+MAIN API ENDPOINTS
+========================
+Auth:
+POST /api/register
+POST /api/login
+GET/PUT /api/me
+
+Admin:
+GET /api/admin/stats
+GET /api/admin/search?q=
+GET /api/admin/users
+PUT /api/admin/users/<id>/status
+GET/POST /api/admin/staff
+GET/POST /api/admin/treks
+PUT/DELETE /api/admin/treks/<id>
+GET /api/admin/bookings
+
+Staff:
+GET /api/staff/dashboard
+PUT /api/staff/treks/<id>
+GET /api/staff/treks/<id>/participants
+
+User/public:
+GET /api/treks (open treks + filters)
+POST /api/bookings
+GET /api/bookings/mine
+PUT /api/bookings/<id>/cancel
+POST /api/export/history
+GET /api/export/status/<task_id>
+
+UI:
+GET /  -> render_template index.html
+
+========================
+HOW TO RUN (WINDOWS + WSL REDIS)
+========================
+1) python -m venv venv
+2) venv\Scripts\activate
+3) pip install -r requirements.txt
+4) Redis in WSL:
+   sudo service redis-server start
+   redis-cli ping  -> PONG
+5) Terminal 1: python app.py
+6) Terminal 2: celery -A celery_worker.celery worker --loglevel=info --pool=solo
+7) Optional beat: celery -A celery_worker.celery beat --loglevel=info
+8) Open http://127.0.0.1:5000
+Admin: admin@tma.local / admin123
+
+Note: On Windows Celery needs --pool=solo.
+Docker Redis was optional; WSL Redis is fine.
+App on Windows connects to Redis via localhost:6379.
+
+========================
+DEMO FLOW FOR EXAMINER
+========================
+1) Admin login -> stats
+2) Add staff
+3) Create trek, assign staff, set Open
+4) Search / manage users-staff
+5) Staff login -> update slots/status -> participants
+6) User register -> filter treks -> book
+7) Try duplicate book (should fail)
+8) Show history/cancel/rebook rules
+9) Export CSV async
+10) Run reminder + monthly report tasks; show exports files
+
+========================
+KNOWN LIMITATIONS / HONEST ANSWERS
+========================
+- UI is minimal Bootstrap tables/forms (intentionally simple)
+- Monthly report is HTML file (+ optional email/webhook), not fancy PDF
+- Reminders can be file/webhook/email; not full SMS gateway
+- Chart.js / PWA / payment not implemented (optional)
+- Some milestone commits for staff/user/history were marker commits because features were in shared app.py
+- Used AI assistance (Cursor) for scaffolding; student must understand code for viva
+
+========================
+YOUR ROLE NOW
+========================
+1) Confirm you understood the project in 8-10 bullet points.
+2) Then wait for my questions.
+3) When I ask, quiz me like a viva examiner OR help me craft good student answers.
+4) Prefer short, precise answers with file/function names when useful.
+5) If I ask to invent a feature not listed, refuse and stick to this project.
