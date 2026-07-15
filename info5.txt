@@ -1,0 +1,165 @@
+# Video script — what to SAY and what to SHOW
+
+**Length:** ~5–6 minutes (max 10)  
+**Before Record:** Redis + Flask + Celery worker running, browser open at login page.
+
+---
+
+## 0:00–0:30 · INTRO
+
+**Show:** Your face (optional) + app login page  
+
+**Speak:**
+> “Hello everyone. My name is [YOUR NAME]. My roll number is [YOUR ROLL].  
+> This is my Modern Application Development Two project — Trekking Management Application Version Two.  
+> The app has three roles: Admin, Trek Staff, and User or Trekker.  
+> I will first explain my approach, then give a live demo of the main features.”
+
+---
+
+## 0:30–1:00 · APPROACH
+
+**Show:** Briefly open project files in VS Code / Codespaces:
+1. `models.py`  
+2. `app.py`  
+3. `tasks.py`  
+4. Back to browser  
+
+**Speak:**
+> “I approached the problem by first creating SQLite tables using Flask-SQLAlchemy models for User, Staff Profile, Trek, and Booking. The database is created automatically in code.  
+> Admin is seeded programmatically, so there is no Admin registration.  
+> Authentication uses JWT tokens with role-based access.  
+> The UI is Vue.js with Bootstrap, and Jinja is only used for the entry page.  
+> Redis is used for caching trek lists, and Celery is used for daily reminders, monthly HTML report, and CSV export.  
+> Now I will start the live demo.”
+
+---
+
+## 1:00–2:20 · ADMIN DEMO
+
+### Show + do
+
+| Do on screen | Speak |
+|--------------|--------|
+| Login `admin@tma.local` / `admin123` | “I am logging in as Admin. Admin is created by seed code when the database is created. There is no Admin registration.” |
+| Point at stats (treks, users, staff, bookings) | “Admin dashboard shows total treks, users, staff, and bookings.” |
+| Add Staff: name, `staff1@test.com`, password, contact → Add | “Admin can add trek staff. Staff cannot self-register.” |
+| Create Trek: name, location, difficulty, days, slots, assign staff, dates, status **Open** → Create | “Admin creates a trekking route, assigns staff, and sets status to Open so users can book.” |
+| Search box: trek/staff name → Search | “Admin can search users, staff, or treks by name or ID.” |
+| Point at Deactivate / Blacklist buttons | “Admin can deactivate or blacklist users and staff.” |
+| Scroll All Bookings | “Admin can view all booking records and trekking history.” |
+
+**Say before leaving Admin:**
+> “So Admin fully manages treks, staff, users, and overall history.”
+
+Click **Logout**.
+
+---
+
+## 2:20–3:10 · STAFF DEMO
+
+| Do | Speak |
+|----|--------|
+| Login `staff1@test.com` / staff password | “Now I login as Trek Staff. Staff login is allowed only after Admin creates the account.” |
+| Point at assigned trek + registered count | “Staff dashboard shows only assigned treks and number of registered trekkers.” |
+| Change slots → status Open/Closed → Update | “Staff can update available slots and trek status such as Open or Closed.” |
+| Click Participants | “Staff can view the participant list for their assigned trek.” |
+| Optional: set Completed → Update | “Staff can mark the trek as completed.” *(If you do this, create/open another trek before user booking, or set Open again.)* |
+
+**Say:**
+> “Only assigned staff can manage that trek. Unauthorized access is blocked by the API.”
+
+**Logout.**  
+*(If trek was Completed, set it Open with slots > 0 as Admin/Staff before user demo.)*
+
+---
+
+## 3:10–4:30 · USER DEMO
+
+| Do | Speak |
+|----|--------|
+| Register: name, email, phone, password | “Users or Trekkers can self-register and login.” |
+| Update profile → Save | “User can update their profile.” |
+| Filter difficulty / location / duration → Filter | “User can view open treks and filter by difficulty, location, and duration.” |
+| Click Book | “User can book a trek. Booking is allowed only when status is Open and slots are available.” |
+| Show My Bookings | “Here the user sees booking status and trekking history.” |
+| Click Book again on same trek | “Duplicate booking for the same trek is prevented.” |
+| Optional: Cancel then Book again | “User can cancel a booking, and can book again after cancellation.” |
+
+---
+
+## 4:30–5:10 · CELERY CSV EXPORT
+
+| Do | Speak |
+|----|--------|
+| Click **Export CSV (async)** | “This triggers a Celery batch job to export trekking history as CSV.” |
+| Briefly show Celery worker terminal (task success) | “The job runs asynchronously through Redis and Celery.” |
+| Wait for UI “Export complete” message | “When finished, the app shows an alert that export is complete.” |
+| Optional: open `exports/user_..._history.csv` | “CSV includes User ID, Trek Name, Location, Booking Status, and dates.” |
+
+---
+
+## 5:10–5:40 · REMINDERS + MONTHLY REPORT
+
+**Show:** Terminal
+
+```powershell
+celery -A celery_worker.celery call tasks.send_daily_reminders
+celery -A celery_worker.celery call tasks.send_monthly_report
+```
+
+Then open:
+- `exports/daily_reminders.txt`
+- `exports/monthly_report.html`
+
+**Speak:**
+> “Daily reminder job sends reminders for upcoming treks with start date and trek details.  
+> Monthly report for Admin is generated as HTML and includes treks conducted, participants, and popular treks.  
+> For local demo these are saved as files, and webhook or email can also be configured.  
+> Redis caching is also used for frequently accessed trek listings with expiry.”
+
+---
+
+## 5:40–6:10 · CLOSE
+
+**Show:** Face / app  
+
+**Speak:**
+> “That completes the core demo.  
+> To summarize: Flask APIs, Vue and Bootstrap UI, SQLite created in code, JWT role-based login, Redis caching, and Celery jobs for reminders, monthly report, and CSV export.  
+> I kept the UI simple and focused on required milestones. Optional extras like charts and PWA were not required for core grading.  
+> The code is on my private GitHub with milestone commits.  
+> Thank you.”
+
+**Stop recording.**
+
+---
+
+# One-page cheat sheet (keep beside you)
+
+1. Intro (name, roll, project, 3 roles)  
+2. Approach (models, JWT, Vue/Bootstrap, Redis, Celery)  
+3. Admin: login → stats → add staff → create Open trek → search → blacklist buttons → bookings  
+4. Staff: login → assigned treks → slots/status → participants  
+5. User: register → filter → book → history → duplicate book fails  
+6. Export CSV → show alert / file  
+7. Reminder + monthly report files  
+8. Thank you  
+
+---
+
+# Fill before recording
+
+- `[YOUR NAME]`  
+- `[YOUR ROLL]`  
+- Staff email/password you created  
+- Keep trek **Open** with slots > 0 before User section  
+
+---
+
+# After video
+
+1. Upload to Google Drive  
+2. Share: **Anyone with the link**  
+3. Put link in project report  
+4. Submit on portal
